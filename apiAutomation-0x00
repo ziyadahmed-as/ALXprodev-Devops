@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# Define the URL for Pikachu data
+API_URL="https://pokeapi.co/api/v2/pokemon/pikachu"
+
+# Make a GET request using curl
+RESPONSE=$(curl -s -w "%{http_code}" -o data.json "$API_URL")
+HTTP_STATUS="${RESPONSE:(-3)}"
+
+# Check if the response status is 200 (success)
+if [ "$HTTP_STATUS" -eq 200 ]; then
+    echo "✅ Data for Pikachu saved to data.json"
+else
+    echo "❌ Failed to fetch data. Status code: $HTTP_STATUS" >> errors.txt
+    echo "Timestamp: $(date)" >> errors.txt
+    echo "------------------------" >> errors.txt
+    rm -f data.json  # Remove partial or empty file
+fi
