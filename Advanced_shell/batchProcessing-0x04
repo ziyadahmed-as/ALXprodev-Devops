@@ -1,23 +1,24 @@
 #!/bin/bash
 
-# ============================================
+# ========================================
 # Script: batchProcessing-0x04
-# Purpose: Parallel fetch of Pokémon data with process control
-# ============================================
+# Purpose: Fetch Pokémon data in parallel
+# ========================================
 
 POKEMON_LIST=("bulbasaur" "ivysaur" "venusaur" "charmander" "charmeleon")
 DATA_DIR="pokemon_data_parallel"
 LOG_FILE="errors_parallel.log"
-PIDS=()  # Store process IDs
 
 mkdir -p "$DATA_DIR"
-> "$LOG_FILE"  # Clear log
+> "$LOG_FILE"  # Clear previous log
 
-# Function to fetch data
+# Function to fetch data for a single Pokémon
 fetch_pokemon() {
     local name="$1"
     local output="$DATA_DIR/${name}.json"
     local url="https://pokeapi.co/api/v2/pokemon/${name}"
+
+    echo "Fetching $name in background..."
 
     response=$(curl -s -w "%{http_code}" -o "$output" "$url")
     http_status="${response: -3}"
@@ -30,18 +31,12 @@ fetch_pokemon() {
     fi
 }
 
-# Trap to clean up on interrupt (Ctrl+C)
-trap 'echo "❌ Script interrupted. Killing all background processes..."; kill ${PIDS[@]} 2>/dev/null; exit 1' SIGINT
-
-# Run all fetches in background
+# Main: Loop through Pokémon list and fetch data in background
 for pokemon in "${POKEMON_LIST[@]}"; do
     fetch_pokemon "$pokemon" &
-    PIDS+=($!)  # Store PID
 done
 
-# Wait for all
-for pid in "${PIDS[@]}"; do
-    wait "$pid"
-done
+# Wait for all background jobs to finish
+wait
 
-echo "✅ All background fetches completed."
+echo "✅ All fetch processes completed."
