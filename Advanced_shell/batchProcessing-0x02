@@ -1,34 +1,44 @@
 #!/bin/bash
 
-# Directory to save JSON data files
+# Directory to store Pokémon data
 DATA_DIR="pokemon_data"
+LOG_FILE="errors.log"
+POKEMON_LIST=("bulbasaur" "ivysaur" "venusaur" "charmander" "charmeleon")
 
-# List of Pokémon to retrieve
-POKEMONS=("bulbasaur" "ivysaur" "venusaur" "charmander" "charmeleon")
-
-# Base API URL
-API_BASE="https://pokeapi.co/api/v2/pokemon"
-
-# Create data directory if it doesn't exist
+# Create data directory if not exists
 mkdir -p "$DATA_DIR"
+> "$LOG_FILE"  # Clear previous log
 
-# Loop through each Pokémon and fetch data
-for POKE in "${POKEMONS[@]}"; do
-    echo "Fetching data for $POKE..."
+# Function to fetch data with retry logic
+fetch_pokemon_data() {
+    local pokemon="$1"
+    local retries=3
+    local count=0
+    local success=0
 
-    # Fetch data using curl with silent mode and store HTTP status
-    HTTP_STATUS=$(curl -s -w "%{http_code}" -o "$DATA_DIR/${POKE}.json" "$API_BASE/$POKE")
+    echo "Fetching data for $pokemon..."
 
-    if [ "$HTTP_STATUS" -eq 200 ]; then
-        echo "Saved data to $DATA_DIR/${POKE}.json ✅"
-    else
-        echo "Failed to fetch data for $POKE (HTTP status: $HTTP_STATUS)"
-        # Optionally log error to a file
-        echo "$(date): Failed to fetch $POKE, HTTP status $HTTP_STATUS" >> error.log
-        # Remove incomplete file if exists
-        rm -f "$DATA_DIR/${POKE}.json"
+    while [ $count -lt $retries ]; do
+        response=$(curl -s -w "%{http_code}" -o "$DATA_DIR/${pokemon}.json" "https://pokeapi.co/api/v2/pokemon/$pokemon")
+        http_code="${response: -3}"
+
+        if [ "$http_code" -eq 200 ]; then
+            echo "Saved data to $DATA_DIR/${pokemon}.json ✅"
+            success=1
+            break
+        else
+            ((count++))
+            echo "Attempt $count for $pokemon failed (Status: $http_code). Retrying..."
+            sleep 2
+        fi
+    done
+
+    if [ $success -ne 1 ]; then
+        echo "❌ Failed to fetch data for $pokemon after $retries attempts." | tee -a "$LOG_FILE"
     fi
+}
 
-    # Delay to handle API rate limiting (e.g., 1 second)
-    sleep 1
+# Main loop
+for pokemon in "${POKEMON_LIST[@]}"; do
+    fetch_pokemon_data "$pokemon"
 done
